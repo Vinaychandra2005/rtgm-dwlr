@@ -137,6 +137,10 @@ def logo_page():
 def dashboard():
     return render_template("dashboard.html")
 
+@app.route("/monitoring")
+def monitoring_page():
+    return render_template("monitoring.html")
+
 @app.route("/support")
 def support_page():
     return render_template("support.html")
