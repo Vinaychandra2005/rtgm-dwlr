@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real Time Ground Water Monitoring System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #fff;
+            color: #333;
+        }
+
+        /* HEADER */
+        .top-bar {
+            background: white;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 15px;
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .main-header {
+            background: linear-gradient(90deg, #0f4c75, #1b6ca8);
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .main-header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+
+        .main-header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+
+        /* CONTAINER */
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* INTRO SECTION */
+        .intro-section {
+            background: transparent;
+            padding: 40px;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 40px;
+        }
+
+        .intro-section h2 {
+            color: #0f4c75;
+            margin-bottom: 20px;
+            font-size: 24px;
+            border-bottom: 3px solid #1b6ca8;
+            padding-bottom: 10px;
+        }
+
+        .intro-content,
+        .significance-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        /* Adjusting the significance image to match the aquifer image */
+        .significance-content img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        /* Ensure both sections have the same column ratio */
+        .significance-content {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .intro-content p {
+            line-height: 1.7;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .intro-content img {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        /* CARDS GRID */
+        .cards-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            justify-items: center;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .card {
+            background: transparent;
+            padding: 30px;
+            border-radius: 0;
+            box-shadow: none;
+            text-align: center;
+            transition: 0.3s ease;
+            cursor: pointer;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+        }
+
+        .card-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .card h3 {
+            color: #0f4c75;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .card p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .card a {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #1b6ca8;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: 0.3s ease;
+        }
+
+        .card a:hover {
+            background: #0f4c75;
+        }
+
+        /* FEATURES SECTION */
+        .features-section {
+            background: transparent;
+            padding: 40px;
+            border-radius: 0;
+            box-shadow: none;
+            margin-bottom: 40px;
+        }
+
+        .features-section h2 {
+            color: #0f4c75;
+            margin-bottom: 30px;
+            font-size: 24px;
+            border-bottom: none;
+            padding-bottom: 10px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .feature-box {
+            background: #f0f5fb;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #1b6ca8;
+            text-align: center;
+        }
+
+        .feature-box h4 {
+            color: #0f4c75;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .feature-box p {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        /* INFO GRID - For images section */
+        .info-grid {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            margin-bottom: 40px;
+        }
+
+        .info-grid h2 {
+            color: #0f4c75;
+            margin-bottom: 30px;
+            font-size: 24px;
+            border-bottom: 3px solid #1b6ca8;
+            padding-bottom: 10px;
+        }
+
+        /* two-column layout: image left, text right */
+        .info-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .info-content .image-placeholder {
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 240px;
+            background: #f8fbff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .info-content img {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        }
+
+        .info-content p {
+            line-height: 1.7;
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        /* STATS SECTION */
+        .stats-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .stat-box {
+            background: transparent;
+            padding: 25px;
+            border-radius: 0;
+            box-shadow: none;
+            text-align: center;
+            border-top: 4px solid #1b6ca8;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0f4c75;
+            margin-bottom: 8px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* FOOTER */
+        .footer {
+            background: #0f4c75;
+            color: white;
+            padding: 30px;
+            text-align: center;
+            font-size: 14px;
+            margin-top: 50px;
+        }
+
+        /* RESPONSIVE */
+        @media(max-width: 1000px) {
+            .cards-section {
+                grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-section {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .intro-content {
+                grid-template-columns: 1fr;
+            }
+
+            .info-content {
+                grid-template-columns: 1fr;
+            }
+
+            .image-gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media(max-width: 600px) {
+            .nav-menu {
+                flex-direction: column;
+            }
+
+            .nav-menu a {
+                padding: 12px 15px;
+                border-bottom: none;
+                border-left: 3px solid transparent;
+            }
+
+            .nav-menu a:hover {
+                border-left-color: #1b6ca8;
+            }
+
+            .main-header h1 {
+                font-size: 20px;
+            }
+        }
+
+        /* LIVE COMMENT BUTTON */
+        .live-comment {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border: 3px solid #000;
+            background: #fff;
+            color: #000;
+            font-size: 24px;
+            font-weight: bold;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .live-comment:hover {
+            background: #f0f0f0;
+        }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-section {
+                grid-template-columns: 1fr;
+            }
+        
+
+    </style>
+</head>
+
+<body>
+
+<div class="main-header">
+    <h1>Real Time Ground Water Monitoring System</h1>
+    <p>DWLR Based Telemetry Monitoring & Analytical Platform</p>
+</div>
+
+
+<div class="container">
+
+    <!-- INTRO SECTION -->
+    <div class="intro-section">
+        <h2>About DWLR & Groundwater Monitoring</h2>
+        <div class="intro-content">
+            <div>
+                <p>
+                    <strong>Digital Water Level Recorders (DWLR)</strong> are automated monitoring instruments installed in observation wells to measure static groundwater levels at predefined time intervals (6-hourly).
+                </p>
+                <p>
+                    These systems transmit telemetry data to centralized servers, enabling near real-time groundwater assessment, aquifer behavior tracking, and long-term hydrogeological analysis. This platform provides a comprehensive solution for groundwater resource management and sustainable development.
+                </p>
+                <p>
+                    <strong>Key Features:</strong> Real-time data acquisition, multi-district coverage, trend detection, risk classification, and policy-level decision support through advanced analytics.
+                </p>
+            </div>
+            <div class="image-placeholder">
+                <img src="{{ url_for('static', filename='dwlr-installation.png') }}" alt="DWLR">
+            </div>
+        </div>
+    </div>
+
+    <!-- QUICK ACTION CARDS -->
+    <div class="cards-section">
+        <div class="card">
+            <div class="card-icon">📊</div>
+            <h3>Live Monitoring</h3>
+            <p>Access real-time groundwater level data from monitoring stations across Telangana with interactive dashboards and detailed analytics.</p>
+            <a href="/monitoring">View Data</a>
+        </div>
+
+    </div>
+
+
+
+    <!-- GROUNDWATER INFORMATION -->
+    <div class="info-grid">
+        <h2>Groundwater Monitoring Mechanism & Resources</h2>
+        <div class="info-content">
+            <div class="image-placeholder">
+                <img src="{{ url_for('static', filename='aquifer-system.png') }}" alt="Aquifer System">
+            </div>
+            <div>
+                <p>
+                    <strong>Groundwater monitoring relies on observation wells equipped with Digital Water Level Recorders (DWLR)</strong> to track aquifer health. These automated systems use submerged pressure transducers and vented cables to measure hydrostatic pressure, which is then converted into precise water level data. Integrated telemetry units transmit these real-time readings via cellular networks to centralized databases for analysis of recharge and depletion trends.
+                </p>
+                <p>
+                    <strong>Global platforms like IGRAC (UNESCO) and national bodies such as the Central Ground Water Board (CGWB)</strong> provide extensive open-access datasets. These resources offer critical insights into water quality parameters, including pH and conductivity, alongside historical water table fluctuations. This data is essential for scientists and policymakers to balance agricultural extraction with natural replenishment to ensure long-term water security.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="intro-section">
+        <h2>Groundwater Level Significance</h2>
+        <div class="significance-content">
+            <div>
+                <p>
+                    Groundwater levels serve as a vital indicator of aquifer health, representing the dynamic vertical distance from the land surface to the water table. These levels fluctuate continuously due to the complex interplay of natural rainfall recharge, seasonal cycles, and human-driven pumping intensity across different geological formations.
+                </p>
+                <p>
+                    By maintaining consistent monitoring, authorities can pinpoint critical depletion zones, evaluate the success of recharge initiatives, and detect early signs of drought stress before they escalate. This real-time data ultimately forms the backbone of sustainable water governance, providing the evidence needed for precise irrigation scheduling, urban security planning, and long-term policy decisions.
+                </p>
+            </div>
+            <div class="image-placeholder">
+                <img src="{{ url_for('static', filename='significance.png') }}" alt="Groundwater Well">
+            </div>
+        </div>
+    </div>
+
+    <!-- FEATURES SECTION -->
+    <div class="features-section">
+        <h2>System Highlights</h2>
+        <div class="stats-section">
+            <div class="stat-box">
+                <div class="stat-number">31</div>
+                <div class="stat-label">Districts</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">1000+</div>
+                <div class="stat-label">Monitoring Stations</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">6 hrs</div>
+                <div class="stat-label">Data Frequency</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">2021-2025</div>
+                <div class="stat-label">Data Period</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<button class="live-comment" title="Support" onclick="window.location.href='{{ url_for('support_page') }}'">?</button>
+
+<div class="footer">
+    © Real Time Ground Water Monitoring System (DWLR) | Telangana Water Resources 
+</div>
+
+</body>
+</html>
