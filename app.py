@@ -1,193 +1,166 @@
-from flask import Flask, render_template, request, send_file, jsonify
-import pandas as pd
-import numpy as np
-import requests
 import os
-import logging
-import matplotlib.pyplot as plt
-
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.lib.units import inch
+import sqlite3
+from flask import Flask, render_template, request, jsonify
+import requests
 
 # =====================================================
-# 🔐 CONFIGURATION
+# CONFIG
 # =====================================================
-
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-logging.basicConfig(level=logging.WARNING)
 
 app = Flask(__name__)
 
-# =====================================================
-# 📂 LOAD DATASET (OPTIMIZED PICKLE)
-# =====================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "data", "groundwater_light.db")
 
-df = pd.read_pickle("data/groundwater.pkl", compression="gzip")
-
-# Memory optimization for large dataset
-df["district"] = df["district"].astype("category")
-df["station"] = df["station"].astype("category")
-
-print("Dataset Loaded | Records:", len(df))
-
-# =====================================================
-# 📈 ANALYTICS FUNCTIONS
-# =====================================================
-
-def detect_station(user_message):
-    message_lower = user_message.lower()
-
-    for station in df["station"].unique():
-        if station.lower() in message_lower:
-            return station
-
-    message_clean = message_lower.replace("_", "").replace(" ", "")
-    for station in df["station"].unique():
-        station_clean = station.lower().replace("_", "").replace(" ", "")
-        if station_clean in message_clean:
-            return station
-
-    return None
-
-
-def compute_station_trend(user_message):
-    station = detect_station(user_message)
-    if not station:
-        return None
-
-    filtered = df[df["station"] == station]
-
-    monthly = (
-        filtered
-        .set_index("date")
-        .resample("ME")["water_level_m"]
-        .mean()
-        .dropna()
-    )
-
-    if len(monthly) < 2:
-        return None
-
-    x = monthly.index.year + (monthly.index.month - 1) / 12.0
-    y = monthly.values
-
-    slope, _ = np.polyfit(x, y, 1)
-
-    if slope > 0:
-        trend = "Rising"
-    elif slope < 0:
-        trend = "Declining"
-    else:
-        trend = "Stable"
-
-    return f"""
-    Station: {station}
-    Trend Classification: {trend}
-    Trend Slope: {slope:.3f} meters per year
-    Time Period: {monthly.index.min().date()} to {monthly.index.max().date()}
-    """
-
-
-def get_latest_reading(user_message):
-    station = detect_station(user_message)
-    if not station:
-        return None
-
-    filtered = df[df["station"] == station].sort_values("date")
-    if filtered.empty:
-        return None
-
-    latest_row = filtered.iloc[-1]
-
-    return f"""
-    Station: {station}
-    Latest Water Level: {latest_row['water_level_m']:.2f} meters
-    Timestamp: {latest_row['date']}
-    """
-
-
-def get_stations_by_district(user_message):
-    message_lower = user_message.lower()
-
-    for district in df["district"].unique():
-        if district.lower() in message_lower:
-            stations = df[df["district"] == district]["station"].unique()
-            station_list = ", ".join(sorted(stations))
-            return f"""
-            District: {district}
-            Total Stations: {len(stations)}
-            Stations: {station_list}
-            """
-
-    return None
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 
 # =====================================================
-# 🏠 ROUTES
+# DATABASE CONNECTION
+# =====================================================
+
+def get_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+# =====================================================
+# BASIC ROUTES
 # =====================================================
 
 @app.route("/")
-def logo_page():
+def home():
     return render_template("logo.html")
+
 
 @app.route("/dashboard")
 def dashboard():
     return render_template("dashboard.html")
 
+
 @app.route("/monitoring")
-def monitoring_page():
+def monitoring():
     return render_template("monitoring.html")
 
+
 @app.route("/support")
-def support_page():
+def support():
     return render_template("support.html")
 
 
 # =====================================================
-# 🤖 AI CHAT ROUTE
+# DATA FUNCTIONS
+# =====================================================
+
+def get_latest_reading(station_name):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT station, water_level_m, date
+        FROM latest_data
+        WHERE station LIKE ?
+        LIMIT 1
+    """, (f"%{station_name}%",))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return f"""
+Station: {row['station']}
+Latest Water Level: {row['water_level_m']} meters
+Timestamp: {row['date']}
+"""
+    return None
+
+
+def get_trend(station_name):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT date, water_level_m
+        FROM monthly_data
+        WHERE station LIKE ?
+        ORDER BY date
+    """, (f"%{station_name}%",))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    if len(rows) < 2:
+        return None
+
+    first = rows[0]["water_level_m"]
+    last = rows[-1]["water_level_m"]
+
+    if last > first:
+        trend = "Rising"
+    elif last < first:
+        trend = "Declining"
+    else:
+        trend = "Stable"
+
+    return f"""
+Station: {station_name}
+Trend: {trend}
+Period: {rows[0]['date']} to {rows[-1]['date']}
+"""
+
+
+# =====================================================
+# AI CHAT ROUTE
 # =====================================================
 
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
-        user_message = request.json.get("message")
+        data = request.get_json()
+        user_message = data.get("message", "").lower()
 
         if not user_message:
             return jsonify({"reply": "Please enter a question."})
 
+        # Simple rule-based detection
+        station_detected = None
+
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT station FROM latest_data")
+        stations = [row["station"].lower() for row in cursor.fetchall()]
+        conn.close()
+
+        for station in stations:
+            if station in user_message:
+                station_detected = station
+                break
+
+        dataset_context = None
+
+        if station_detected:
+            if "latest" in user_message:
+                dataset_context = get_latest_reading(station_detected)
+            elif "trend" in user_message:
+                dataset_context = get_trend(station_detected)
+
         system_prompt = """
-        You are an AI assistant for the RTGM DWLR system.
-        You have access to computed dataset results provided in system messages.
-        Always use provided data.
-        Never say you do not have dataset access.
-        Do not fabricate numbers.
-        Be technical and scientific.
-        """
+You are an AI assistant for the Real Time Ground Water Monitoring System (RTGM DWLR).
 
-        latest_context = None
-        trend_context = None
-        district_context = None
+Important:
+- DWLR stands for Digital Water Level Recorder.
+- It records groundwater levels at 6-hour intervals.
+- Provide technical and scientific answers.
+- Do not fabricate numbers.
+"""
 
-        if "latest" in user_message.lower():
-            latest_context = get_latest_reading(user_message)
-        elif "trend" in user_message.lower():
-            trend_context = compute_station_trend(user_message)
-        else:
-            district_context = get_stations_by_district(user_message)
+        messages = [
+            {"role": "system", "content": system_prompt}
+        ]
 
-        messages = [{"role": "system", "content": system_prompt}]
-
-        if latest_context:
-            messages.append({"role": "system", "content": latest_context})
-
-        if trend_context:
-            messages.append({"role": "system", "content": trend_context})
-
-        if district_context:
-            messages.append({"role": "system", "content": district_context})
+        if dataset_context:
+            messages.append({"role": "system", "content": dataset_context})
 
         messages.append({"role": "user", "content": user_message})
 
@@ -201,29 +174,26 @@ def chat():
                 "model": "openrouter/auto",
                 "messages": messages,
                 "temperature": 0.3
-            }
+            },
+            timeout=20
         )
 
         if response.status_code != 200:
-            return jsonify({"reply": "AI API error."})
+            return jsonify({"reply": "AI service error."})
 
         result = response.json()
-
-        if "choices" not in result:
-            return jsonify({"reply": "Unexpected AI response."})
-
         reply = result["choices"][0]["message"]["content"]
 
         return jsonify({"reply": reply})
 
     except Exception as e:
-        logging.error(f"AI ERROR: {e}")
         return jsonify({"reply": "AI service temporarily unavailable."})
 
 
 # =====================================================
-# 🚀 RUN
+# RUN (LOCAL ONLY)
 # =====================================================
 
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
