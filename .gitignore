@@ -1,22 +1,41 @@
-# Virtual Environment
+# ==============================
+# 🔐 Virtual Environment
+# ==============================
 venv/
 .venv/
 
-# Python cache
+# ==============================
+# 🐍 Python Cache
+# ==============================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-# Environment variables
+# ==============================
+# 🔑 Environment Variables
+# ==============================
 .env
 
-# OS files
+# ==============================
+# 🖥 OS Files
+# ==============================
 .DS_Store
 Thumbs.db
 
-# VS Code settings (optional)
+# ==============================
+# 🧠 VS Code
+# ==============================
 .vscode/
 
-# Ignore large original dataset
+# ==============================
+# 📦 Large Original Datasets (DO NOT DEPLOY)
+# ==============================
 data/Telangana_GroundWater_6_hour_Dataset_2021_2025.csv
+data/groundwater.pkl
+data/groundwater.db
+
+# ==============================
+# 📝 Logs
+# ==============================
+*.log
