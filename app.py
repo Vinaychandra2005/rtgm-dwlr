@@ -41,12 +41,182 @@ def dashboard():
 
 @app.route("/monitoring")
 def monitoring():
-    return render_template("monitoring.html")
 
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    selected_district = request.args.get("district")
+    selected_station = request.args.get("station")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    # -------------------------
+    # Load Districts
+    # -------------------------
+    cursor.execute("SELECT DISTINCT district FROM station_metadata ORDER BY district")
+    districts = [row["district"] for row in cursor.fetchall()]
+
+    stations = []
+    dates = []
+    water_levels = []
+
+    latitude = None
+    longitude = None
+
+    min_level = max_level = avg_level = latest_level = 0
+    total_records = 0
+
+    # -------------------------
+    # Load Stations for Selected District
+    # -------------------------
+    if selected_district:
+        cursor.execute(
+            "SELECT station FROM station_metadata WHERE district=? ORDER BY station",
+            (selected_district,)
+        )
+        stations = [row["station"] for row in cursor.fetchall()]
+
+    # -------------------------
+    # Load Station Data
+    # -------------------------
+    if selected_station:
+
+        # Get coordinates
+        cursor.execute(
+            "SELECT latitude, longitude FROM station_metadata WHERE station=?",
+            (selected_station,)
+        )
+        loc = cursor.fetchone()
+        if loc:
+            latitude = loc["latitude"]
+            longitude = loc["longitude"]
+
+        # Build query
+        query = """
+            SELECT date, water_level_m
+            FROM monthly_data
+            WHERE station=?
+        """
+        params = [selected_station]
+
+        if start_date:
+            query += " AND date >= ?"
+            params.append(start_date)
+
+        if end_date:
+            query += " AND date <= ?"
+            params.append(end_date)
+
+        query += " ORDER BY date"
+
+        cursor.execute(query, tuple(params))
+        rows = cursor.fetchall()
+
+        dates = [r["date"] for r in rows]
+        water_levels = [r["water_level_m"] for r in rows]
+
+        if water_levels:
+            min_level = round(min(water_levels), 2)
+            max_level = round(max(water_levels), 2)
+            avg_level = round(sum(water_levels)/len(water_levels), 2)
+            latest_level = round(water_levels[-1], 2)
+            total_records = len(water_levels)
+
+    conn.close()
+
+    return render_template(
+        "monitoring.html",
+        districts=districts,
+        stations=stations,
+        selected_district=selected_district,
+        selected_station=selected_station,
+        start_date=start_date,
+        end_date=end_date,
+        dates=dates,
+        water_levels=water_levels,
+        latitude=latitude,
+        longitude=longitude,
+        min_level=min_level,
+        max_level=max_level,
+        avg_level=avg_level,
+        latest_level=latest_level,
+        total_records=total_records
+    )
+
+from flask import Response
+import csv
+from io import StringIO
+
+@app.route("/download")
+def download():
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    selected_station = request.args.get("station")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    if not selected_station:
+        return "Please select a station before downloading.", 400
+
+    # Build dynamic query
+    query = """
+        SELECT date, water_level_m
+        FROM monthly_data
+        WHERE station=?
+    """
+    params = [selected_station]
+
+    if start_date:
+        query += " AND date >= ?"
+        params.append(start_date)
+
+    if end_date:
+        query += " AND date <= ?"
+        params.append(end_date)
+
+    query += " ORDER BY date"
+
+    cursor.execute(query, tuple(params))
+    rows = cursor.fetchall()
+    conn.close()
+
+    if not rows:
+        return "No data available for selected filters.", 404
+
+    # Create CSV
+    output = StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["Date", "Water Level (m)"])
+
+    for row in rows:
+        writer.writerow([row["date"], row["water_level_m"]])
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={
+            "Content-Disposition":
+            f"attachment;filename={selected_station}_groundwater_data.csv"
+        }
+    )
 
 @app.route("/support")
 def support():
     return render_template("support.html")
+
+
+@app.route("/testdb")
+def testdb():
+    import sqlite3
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cursor.fetchall()
+    conn.close()
+    return str(tables)
 
 
 # =====================================================

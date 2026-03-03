@@ -7,82 +7,49 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        body {
-            margin: 0;
-            font-family: "Segoe UI", Arial;
-            background: #f4f8fb;
-        }
-
-        .header {
-            background: #0f4c75;
-            color: white;
-            padding: 25px;
-            text-align: center;
-        }
-
-        .container {
-            width: 90%;
-            margin: 30px auto;
-        }
+        body { margin:0; font-family:Segoe UI, Arial; background:#f4f8fb; }
+        .header { background:#0f4c75; color:white; padding:25px; text-align:center; }
+        .container { width:90%; margin:30px auto; }
 
         .filter-box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-            margin-bottom: 30px;
+            background:white; padding:20px; border-radius:8px;
+            box-shadow:0 3px 10px rgba(0,0,0,0.08); margin-bottom:30px;
         }
 
-        .filter-box select,
-        .filter-box input {
-            padding: 8px;
-            margin-right: 10px;
+        .filter-box select, .filter-box input {
+            padding:8px; margin-right:10px;
         }
 
         .btn {
-            padding: 8px 15px;
-            background: #1b6ca8;
-            color: white;
-            border: none;
-            cursor: pointer;
-            border-radius: 4px;
+            padding:8px 15px; background:#1b6ca8; color:white;
+            border:none; cursor:pointer; border-radius:4px;
         }
 
         .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
+            display:grid; grid-template-columns:repeat(5,1fr);
+            gap:20px; margin-bottom:30px;
         }
 
         .kpi-card {
-            background: white;
-            padding: 25px;
-            text-align: center;
-            border-radius: 8px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            background:white; padding:25px; text-align:center;
+            border-radius:8px; box-shadow:0 3px 12px rgba(0,0,0,0.08);
         }
 
         .analytics-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
+            display:grid; grid-template-columns:1fr 1fr;
+            gap:25px;
         }
 
         .card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            background:white; padding:20px;
+            border-radius:8px; box-shadow:0 3px 12px rgba(0,0,0,0.08);
         }
 
-        #map {
-            height: 350px;
-        }
+        #map { height:350px; }
 
         @media(max-width:1000px){
-            .kpi-grid { grid-template-columns: 1fr 1fr; }
-            .analytics-grid { grid-template-columns: 1fr; }
+            .kpi-grid { grid-template-columns:1fr 1fr; }
+            .analytics-grid { grid-template-columns:1fr; }
         }
     </style>
 </head>
@@ -95,7 +62,7 @@
 
 <div class="container">
 
-    <!-- FILTERS -->
+    <!-- FILTER -->
     <div class="filter-box">
         <form method="GET" action="/monitoring">
 
@@ -103,8 +70,8 @@
                 <option value="">Select District</option>
                 {% for district in districts %}
                 <option value="{{ district }}"
-                {% if district == selected_district %}selected{% endif %}>
-                {{ district }}
+                    {% if district == selected_district %}selected{% endif %}>
+                    {{ district }}
                 </option>
                 {% endfor %}
             </select>
@@ -113,17 +80,18 @@
                 <option value="">Select Station</option>
                 {% for station in stations %}
                 <option value="{{ station }}"
-                {% if station == selected_station %}selected{% endif %}>
-                {{ station }}
+                    {% if station == selected_station %}selected{% endif %}>
+                    {{ station }}
                 </option>
                 {% endfor %}
             </select>
 
-            <input type="date" name="start_date" value="{{ start_date }}">
-            <input type="date" name="end_date" value="{{ end_date }}">
+            <input type="date" name="start_date" value="{{ start_date or '' }}">
+            <input type="date" name="end_date" value="{{ end_date or '' }}">
 
-            <button class="btn">Apply</button>
-            <button class="btn">Download</button>
+            <button class="btn" type="submit">Apply</button>
+            <button class="btn" type="submit" formaction="/download">Download</button>
+
         </form>
     </div>
 
@@ -136,7 +104,7 @@
         <div class="kpi-card"><h4>Total Records</h4><p>{{ total_records }}</p></div>
     </div>
 
-    <!-- GRAPH + MAP -->
+    <!-- ANALYTICS -->
     <div class="analytics-grid">
 
         <div class="card">
@@ -156,22 +124,26 @@
 <!-- LEAFLET -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const latitude = {{ latitude | tojson if latitude is not none else 'null' }};
-const longitude = {{ longitude | tojson if longitude is not none else 'null' }};
+const latitude = {{ latitude | tojson }};
+const longitude = {{ longitude | tojson }};
 
 if(latitude && longitude){
     const map = L.map('map').setView([latitude, longitude], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    L.marker([latitude, longitude]).addTo(map)
-        .bindPopup("{{ selected_station }}")
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png')
+        .addTo(map);
+
+    L.marker([latitude, longitude])
+        .addTo(map)
+        .bindPopup("{{ selected_station or '' }}")
         .openPopup();
 }
 </script>
 
 <!-- CHART -->
 <script>
-const labels = {{ dates | tojson if dates else '[]' }};
-const data = {{ water_levels | tojson if water_levels else '[]' }};
+const labels = {{ dates | tojson }};
+const data = {{ water_levels | tojson }};
 
 if(labels.length > 0){
     new Chart(document.getElementById("trendChart"), {
@@ -187,40 +159,6 @@ if(labels.length > 0){
                 tension: 0.3
             }]
         }
-    });
-}
-</script>
-
-<!-- dynamic station fetch -->
-<script>
-const districtSelect = document.querySelector('select[name="district"]');
-const stationSelect = document.querySelector('select[name="station"]');
-
-function updateStations(district) {
-    fetch(`/get_stations?district=${encodeURIComponent(district)}`)
-        .then(res => res.json())
-        .then(data => {
-            stationSelect.innerHTML = '';
-            data.forEach(st => {
-                const option = document.createElement('option');
-                option.value = st;
-                option.textContent = st;
-                stationSelect.appendChild(option);
-            });
-            // choose first station by default if available
-            if (stationSelect.options.length > 0) {
-                stationSelect.selectedIndex = 0;
-            }
-        })
-        .catch(err => {
-            console.error('Failed to load stations', err);
-            stationSelect.innerHTML = '';
-        });
-}
-
-if (districtSelect) {
-    districtSelect.addEventListener('change', (e) => {
-        updateStations(e.target.value);
     });
 }
 </script>
