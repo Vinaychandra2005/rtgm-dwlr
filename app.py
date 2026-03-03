@@ -103,7 +103,7 @@ def monitoring():
         # Query monthly data
         query = """
             SELECT date, water_level_m
-            FROM monthly_data
+            FROM daily_data
             WHERE station=?
         """
         params = [selected_station]
@@ -269,7 +269,7 @@ def get_trend(station_name):
 
     cursor.execute("""
         SELECT date, water_level_m
-        FROM monthly_data
+        FROM daily_data
         WHERE station LIKE ?
         ORDER BY date
     """, (f"%{station_name}%",))
