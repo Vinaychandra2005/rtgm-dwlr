@@ -1,7 +1,9 @@
 import os
 import sqlite3
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 import requests
+import csv
+from io import StringIO
 
 # =====================================================
 # CONFIG
@@ -39,6 +41,15 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app.route("/support")
+def support():
+    return render_template("support.html")
+
+
+# =====================================================
+# MONITORING ROUTE
+# =====================================================
+
 @app.route("/monitoring")
 def monitoring():
 
@@ -50,9 +61,7 @@ def monitoring():
     start_date = request.args.get("start_date")
     end_date = request.args.get("end_date")
 
-    # -------------------------
-    # Load Districts
-    # -------------------------
+    # Load districts
     cursor.execute("SELECT DISTINCT district FROM station_metadata ORDER BY district")
     districts = [row["district"] for row in cursor.fetchall()]
 
@@ -63,12 +72,13 @@ def monitoring():
     latitude = None
     longitude = None
 
-    min_level = max_level = avg_level = latest_level = 0
+    min_level = 0
+    max_level = 0
+    avg_level = 0
+    latest_level = 0
     total_records = 0
 
-    # -------------------------
-    # Load Stations for Selected District
-    # -------------------------
+    # Load stations for selected district
     if selected_district:
         cursor.execute(
             "SELECT station FROM station_metadata WHERE district=? ORDER BY station",
@@ -76,22 +86,21 @@ def monitoring():
         )
         stations = [row["station"] for row in cursor.fetchall()]
 
-    # -------------------------
-    # Load Station Data
-    # -------------------------
+    # Load station data
     if selected_station:
 
-        # Get coordinates
+        # Coordinates
         cursor.execute(
             "SELECT latitude, longitude FROM station_metadata WHERE station=?",
             (selected_station,)
         )
         loc = cursor.fetchone()
+
         if loc:
             latitude = loc["latitude"]
             longitude = loc["longitude"]
 
-        # Build query
+        # Query monthly data
         query = """
             SELECT date, water_level_m
             FROM monthly_data
@@ -99,13 +108,9 @@ def monitoring():
         """
         params = [selected_station]
 
-        if start_date:
-            query += " AND date >= ?"
-            params.append(start_date)
-
-        if end_date:
-            query += " AND date <= ?"
-            params.append(end_date)
+        if start_date and end_date:
+            query += " AND date BETWEEN ? AND ?"
+            params.extend([start_date, end_date])
 
         query += " ORDER BY date"
 
@@ -118,7 +123,7 @@ def monitoring():
         if water_levels:
             min_level = round(min(water_levels), 2)
             max_level = round(max(water_levels), 2)
-            avg_level = round(sum(water_levels)/len(water_levels), 2)
+            avg_level = round(sum(water_levels) / len(water_levels), 2)
             latest_level = round(water_levels[-1], 2)
             total_records = len(water_levels)
 
@@ -143,9 +148,36 @@ def monitoring():
         total_records=total_records
     )
 
-from flask import Response
-import csv
-from io import StringIO
+
+# =====================================================
+# AUTO STATION UPDATE (AJAX)
+# =====================================================
+
+@app.route("/get_stations")
+def get_stations():
+
+    district = request.args.get("district")
+
+    if not district:
+        return jsonify([])
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT station FROM station_metadata WHERE district=? ORDER BY station",
+        (district,)
+    )
+
+    stations = [row["station"] for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify(stations)
+
+
+# =====================================================
+# DOWNLOAD CSV
+# =====================================================
 
 @app.route("/download")
 def download():
@@ -160,7 +192,6 @@ def download():
     if not selected_station:
         return "Please select a station before downloading.", 400
 
-    # Build dynamic query
     query = """
         SELECT date, water_level_m
         FROM monthly_data
@@ -185,7 +216,6 @@ def download():
     if not rows:
         return "No data available for selected filters.", 404
 
-    # Create CSV
     output = StringIO()
     writer = csv.writer(output)
 
@@ -203,27 +233,13 @@ def download():
         }
     )
 
-@app.route("/support")
-def support():
-    return render_template("support.html")
-
-
-@app.route("/testdb")
-def testdb():
-    import sqlite3
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = cursor.fetchall()
-    conn.close()
-    return str(tables)
-
 
 # =====================================================
-# DATA FUNCTIONS
+# DATA FUNCTIONS FOR AI
 # =====================================================
 
 def get_latest_reading(station_name):
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -247,6 +263,7 @@ Timestamp: {row['date']}
 
 
 def get_trend(station_name):
+
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -286,6 +303,7 @@ Period: {rows[0]['date']} to {rows[-1]['date']}
 
 @app.route("/chat", methods=["POST"])
 def chat():
+
     try:
         data = request.get_json()
         user_message = data.get("message", "").lower()
@@ -293,7 +311,6 @@ def chat():
         if not user_message:
             return jsonify({"reply": "Please enter a question."})
 
-        # Simple rule-based detection
         station_detected = None
 
         conn = get_connection()
@@ -325,9 +342,7 @@ Important:
 - Do not fabricate numbers.
 """
 
-        messages = [
-            {"role": "system", "content": system_prompt}
-        ]
+        messages = [{"role": "system", "content": system_prompt}]
 
         if dataset_context:
             messages.append({"role": "system", "content": dataset_context})
@@ -356,7 +371,7 @@ Important:
 
         return jsonify({"reply": reply})
 
-    except Exception as e:
+    except Exception:
         return jsonify({"reply": "AI service temporarily unavailable."})
 
 

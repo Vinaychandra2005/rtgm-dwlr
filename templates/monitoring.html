@@ -62,67 +62,62 @@
 
 <div class="container">
 
-    <!-- FILTER -->
-    <div class="filter-box">
-        <form method="GET" action="/monitoring">
+<div class="filter-box">
+<form method="GET" action="/monitoring">
 
-            <select name="district">
-                <option value="">Select District</option>
-                {% for district in districts %}
-                <option value="{{ district }}"
-                    {% if district == selected_district %}selected{% endif %}>
-                    {{ district }}
-                </option>
-                {% endfor %}
-            </select>
+<select name="district" id="districtSelect">
+<option value="">Select District</option>
+{% for district in districts %}
+<option value="{{ district }}" {% if district == selected_district %}selected{% endif %}>
+{{ district }}
+</option>
+{% endfor %}
+</select>
 
-            <select name="station">
-                <option value="">Select Station</option>
-                {% for station in stations %}
-                <option value="{{ station }}"
-                    {% if station == selected_station %}selected{% endif %}>
-                    {{ station }}
-                </option>
-                {% endfor %}
-            </select>
+<select name="station" id="stationSelect">
+<option value="">Select Station</option>
+{% for station in stations %}
+<option value="{{ station }}" {% if station == selected_station %}selected{% endif %}>
+{{ station }}
+</option>
+{% endfor %}
+</select>
 
-            <input type="date" name="start_date" value="{{ start_date or '' }}">
-            <input type="date" name="end_date" value="{{ end_date or '' }}">
+<input type="date" name="start_date" value="{{ start_date or '' }}">
+<input type="date" name="end_date" value="{{ end_date or '' }}">
 
-            <button class="btn" type="submit">Apply</button>
-            <button class="btn" type="submit" formaction="/download">Download</button>
+<button class="btn" type="submit">Apply</button>
+<button class="btn" type="submit" formaction="/download">Download</button>
 
-        </form>
-    </div>
+</form>
+</div>
 
-    <!-- KPI -->
-    <div class="kpi-grid">
-        <div class="kpi-card"><h4>Min</h4><p>{{ min_level }} m</p></div>
-        <div class="kpi-card"><h4>Max</h4><p>{{ max_level }} m</p></div>
-        <div class="kpi-card"><h4>Avg</h4><p>{{ avg_level }} m</p></div>
-        <div class="kpi-card"><h4>Latest</h4><p>{{ latest_level }} m</p></div>
-        <div class="kpi-card"><h4>Total Records</h4><p>{{ total_records }}</p></div>
-    </div>
+<div class="kpi-grid">
+<div class="kpi-card"><h4>Min</h4><p>{{ min_level }} m</p></div>
+<div class="kpi-card"><h4>Max</h4><p>{{ max_level }} m</p></div>
+<div class="kpi-card"><h4>Avg</h4><p>{{ avg_level }} m</p></div>
+<div class="kpi-card"><h4>Latest</h4><p>{{ latest_level }} m</p></div>
+<div class="kpi-card"><h4>Total Records</h4><p>{{ total_records }}</p></div>
+</div>
 
-    <!-- ANALYTICS -->
-    <div class="analytics-grid">
+<div class="analytics-grid">
 
-        <div class="card">
-            <h3>Trend</h3>
-            <canvas id="trendChart"></canvas>
-        </div>
+<div class="card">
+<h3>Trend</h3>
+<canvas id="trendChart"></canvas>
+</div>
 
-        <div class="card">
-            <h3>Station Location</h3>
-            <div id="map"></div>
-        </div>
-
-    </div>
+<div class="card">
+<h3>Station Location</h3>
+<div id="map"></div>
+</div>
 
 </div>
 
-<!-- LEAFLET -->
+</div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 <script>
 const latitude = {{ latitude | tojson }};
 const longitude = {{ longitude | tojson }};
@@ -140,12 +135,11 @@ if(latitude && longitude){
 }
 </script>
 
-<!-- CHART -->
 <script>
 const labels = {{ dates | tojson }};
 const data = {{ water_levels | tojson }};
 
-if(labels.length > 0){
+if(labels && labels.length > 0){
     new Chart(document.getElementById("trendChart"), {
         type: 'line',
         data: {
@@ -161,6 +155,39 @@ if(labels.length > 0){
         }
     });
 }
+</script>
+
+<script>
+const districtSelect = document.getElementById("districtSelect");
+const stationSelect = document.getElementById("stationSelect");
+
+districtSelect.addEventListener("change", function () {
+
+    const district = this.value;
+
+    if (!district) {
+        stationSelect.innerHTML = '<option value="">Select Station</option>';
+        return;
+    }
+
+    fetch(`/get_stations?district=${encodeURIComponent(district)}`)
+        .then(res => res.json())
+        .then(data => {
+
+            stationSelect.innerHTML = '<option value="">Select Station</option>';
+
+            data.forEach(st => {
+                const option = document.createElement("option");
+                option.value = st;
+                option.textContent = st;
+                stationSelect.appendChild(option);
+            });
+
+        })
+        .catch(error => {
+            console.error("Error loading stations:", error);
+        });
+});
 </script>
 
 </body>
